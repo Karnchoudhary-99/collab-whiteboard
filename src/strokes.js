@@ -24,3 +24,10 @@ export function addStroke(board, points, color = "#222222", width = 2) {
 export function clearBoard(board) {
   board.strokes.length = 0;
 }
+
+// Removes and returns the most recent stroke, or null when empty.
+// Undo is just "last stroke wins in reverse": every client and the
+// server apply the same rule, so a broadcast undo stays consistent.
+export function undoStroke(board) {
+  return board.strokes.pop() ?? null;
+}
