@@ -61,7 +61,9 @@ test("server: stroke POST then state GET round-trips, invalid strokes rejected",
   assert.equal(bad.status, 400);
   const badJson = await call(handler, "POST", "/rooms/lobby/strokes", "{not json");
   assert.equal(badJson.status, 400);
-  const badRoom = await call(handler, "GET", "/rooms/../etc");
+  // Note: "/rooms/../etc" never reaches the room route — URL parsing
+  // normalizes it to "/etc" first (a 404), which is safe, not a bug.
+  const badRoom = await call(handler, "GET", "/rooms/a b");
   assert.equal(badRoom.status, 400);
   const missing = await call(handler, "GET", "/nope");
   assert.equal(missing.status, 404);
