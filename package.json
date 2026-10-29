@@ -1,0 +1,10 @@
+{
+  "name": "collab-whiteboard",
+  "version": "0.1.0",
+  "description": "Realtime collaborative whiteboard: shared canvas, live cursors and stroke sync",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT"
+}
