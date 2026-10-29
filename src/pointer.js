@@ -29,12 +29,12 @@ export function createStrokeCapture({ minDistance = 2, baseWidth = 2 } = {}) {
   let current = null;
 
   return {
-    pointerDown(point, color = "#222222") {
+    pointerDown(point, color = "#222222", width = baseWidth) {
       if (current) return null; // stray down mid-stroke: ignore
       current = {
         points: [{ x: point.x, y: point.y }],
         color,
-        width: widthForPressure(baseWidth, point.pressure),
+        width: widthForPressure(width, point.pressure),
       };
       return current;
     },
@@ -55,6 +55,11 @@ export function createStrokeCapture({ minDistance = 2, baseWidth = 2 } = {}) {
 
     isDrawing() {
       return current !== null;
+    },
+
+    // The in-progress stroke for live preview rendering (null when idle).
+    currentStroke() {
+      return current;
     },
   };
 }

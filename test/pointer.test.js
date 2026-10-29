@@ -50,3 +50,9 @@ test("capture: pressure on down sets the stroke width", () => {
   cap.pointerDown({ x: 0, y: 0, pressure: 1 });
   assert.equal(cap.pointerUp().width, 6);
 });
+
+test("capture: explicit width on down overrides the base width", () => {
+  const cap = createStrokeCapture({ baseWidth: 4 });
+  cap.pointerDown({ x: 0, y: 0 }, "#000000", 10);
+  assert.equal(cap.pointerUp().width, 10);
+});
