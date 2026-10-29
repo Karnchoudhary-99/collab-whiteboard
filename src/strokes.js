@@ -6,7 +6,7 @@ export function createBoard() {
   return { strokes: [] };
 }
 
-export function addStroke(board, points, color = "#222222", width = 2) {
+export function addStroke(board, points, color = "#222222", width = 2, id = undefined) {
   if (!Array.isArray(points) || points.length < 1) {
     throw new Error("a stroke needs at least one point");
   }
@@ -16,7 +16,10 @@ export function addStroke(board, points, color = "#222222", width = 2) {
       throw new Error("stroke points must have finite numeric x and y");
     }
   }
+  // id is the dedup key shared with the server: a client-generated uuid
+  // for local strokes, a server sequence for strokes from other clients.
   const stroke = { points: points.map((p) => ({ x: p.x, y: p.y })), color, width };
+  if (id !== undefined) stroke.id = id;
   board.strokes.push(stroke);
   return stroke;
 }

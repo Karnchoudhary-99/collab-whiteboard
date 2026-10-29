@@ -48,14 +48,20 @@ test("server: GET / serves the drawing page", async () => {
 test("server: stroke POST then state GET round-trips, invalid strokes rejected", async () => {
   const handler = createRequestHandler(createRooms());
   const created = await call(handler, "POST", "/rooms/lobby/strokes", {
-    points: [{ x: 1, y: 2 }], color: "#111111", width: 3,
+    points: [{ x: 1, y: 2 }], color: "#111111", width: 3, id: "client-1",
   });
   assert.equal(created.status, 201);
   assert.equal(created.json().stroke.color, "#111111");
+  assert.equal(created.json().stroke.id, "client-1"); // client id echoed for dedup
 
   const state = await call(handler, "GET", "/rooms/lobby");
   assert.equal(state.status, 200);
   assert.equal(state.json().strokes.length, 1);
+
+  const serverId = await call(handler, "POST", "/rooms/lobby/strokes", {
+    points: [{ x: 2, y: 3 }],
+  });
+  assert.match(serverId.json().stroke.id, /^srv-\d+$/); // no client id -> server sequence
 
   const bad = await call(handler, "POST", "/rooms/lobby/strokes", { points: [] });
   assert.equal(bad.status, 400);

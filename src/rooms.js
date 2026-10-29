@@ -24,6 +24,7 @@ export function createRooms() {
       room = {
         id,
         board,
+        seq: 0,
         subscribe(fn) {
           listeners.add(fn);
           return () => listeners.delete(fn);
@@ -31,8 +32,8 @@ export function createRooms() {
         broadcast(event) {
           for (const fn of [...listeners]) fn(event);
         },
-        addStroke(points, color, width) {
-          const stroke = addStroke(board, points, color, width);
+        addStroke(points, color, width, id = undefined) {
+          const stroke = addStroke(board, points, color, width, id ?? `srv-${++room.seq}`);
           room.broadcast({ type: "stroke", stroke });
           return stroke;
         },

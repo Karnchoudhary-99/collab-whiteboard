@@ -103,7 +103,8 @@ export function createRequestHandler(rooms, { publicDir = PUBLIC_DIR, srcDir = S
             return sendJson(res, e.status ?? 400, { error: e.status ? "body too large" : "invalid JSON" });
           }
           try {
-            const stroke = room.addStroke(body.points, body.color, body.width);
+            const clientId = typeof body.id === "string" && body.id.length <= 128 ? body.id : undefined;
+            const stroke = room.addStroke(body.points, body.color, body.width, clientId);
             return sendJson(res, 201, { stroke });
           } catch (e) {
             return sendJson(res, 400, { error: e.message });
