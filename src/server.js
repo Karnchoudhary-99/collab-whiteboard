@@ -139,9 +139,15 @@ export function startServer({ port = 8000, host = "127.0.0.1", rooms = createRoo
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   const args = process.argv.slice(2);
-  const portArg = args[args.indexOf("--port") + 1];
-  const hostArg = args[args.indexOf("--host") + 1];
-  const port = portArg ? Number(portArg) : 8000;
+  // NB: indexOf returns -1 for a missing flag, so args[-1 + 1] would
+  // silently read args[0] — always guard before taking the next token.
+  const flagValue = (name) => {
+    const i = args.indexOf(name);
+    return i >= 0 ? args[i + 1] : undefined;
+  };
+  const portArg = flagValue("--port");
+  const hostArg = flagValue("--host");
+  const port = portArg && Number.isFinite(Number(portArg)) ? Number(portArg) : 8000;
   const host = hostArg ?? "127.0.0.1";
   const server = startServer({ port, host });
   server.on("listening", () => {
