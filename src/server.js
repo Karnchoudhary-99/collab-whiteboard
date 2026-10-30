@@ -6,6 +6,9 @@
 //   POST /rooms/:id/strokes         {points, color, width} -> 201, broadcast
 //   POST /rooms/:id/undo            remove last stroke, broadcast
 //   POST /rooms/:id/clear           clear board, broadcast
+//   POST /rooms/:id/cursors         {peerId, name, x, y} -> 200, broadcast
+//   POST /rooms/:id/leave           {peerId} -> 200, broadcast peer-left
+//   GET  /rooms/:id/presence        current peers (stale peers pruned first)
 //   GET  /rooms/:id/events          Server-Sent Events broadcast channel
 //
 // The request handler is exported separately from the listener so tests
@@ -110,6 +113,35 @@ export function createRequestHandler(rooms, { publicDir = PUBLIC_DIR, srcDir = S
             return sendJson(res, 400, { error: e.message });
           }
         }
+        if (parts.length === 3 && parts[2] === "presence" && req.method === "GET") {
+          room.prunePresence();
+          return sendJson(res, 200, { room: id, peers: room.listPresence() });
+        }
+        if (parts.length === 3 && parts[2] === "cursors" && req.method === "POST") {
+          let body;
+          try {
+            body = JSON.parse(await readBody(req));
+          } catch (e) {
+            return sendJson(res, e.status ?? 400, { error: e.status ? "body too large" : "invalid JSON" });
+          }
+          try {
+            const peer = room.moveCursor(body.peerId, body.name, body.x, body.y);
+            return sendJson(res, 200, { peer });
+          } catch (e) {
+            return sendJson(res, 400, { error: e.message });
+          }
+        }
+        if (parts.length === 3 && parts[2] === "leave" && req.method === "POST") {
+          let body = {};
+          try {
+            const raw = await readBody(req);
+            if (raw.trim() !== "") body = JSON.parse(raw);
+          } catch (e) {
+            return sendJson(res, e.status ?? 400, { error: e.status ? "body too large" : "invalid JSON" });
+          }
+          const left = typeof body.peerId === "string" ? room.leavePeer(body.peerId) : false;
+          return sendJson(res, 200, { left });
+        }
         if (parts.length === 3 && parts[2] === "undo" && req.method === "POST") {
           await readBody(req).catch(() => {});
           return sendJson(res, 200, { undone: room.undo() });
@@ -132,6 +164,13 @@ export function createRequestHandler(rooms, { publicDir = PUBLIC_DIR, srcDir = S
 
 export function startServer({ port = 8000, host = "127.0.0.1", rooms = createRooms() } = {}) {
   const server = http.createServer(createRequestHandler(rooms));
+  // Periodic sweep: a tab that closed without sending leave still
+  // disappears within staleAfterMs + this interval for everyone else.
+  const sweep = setInterval(() => {
+    for (const room of rooms.all()) room.prunePresence();
+  }, 5000);
+  sweep.unref?.();
+  server.on("close", () => clearInterval(sweep));
   server.listen(port, host);
   return server;
 }
