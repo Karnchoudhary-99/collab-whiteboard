@@ -11,7 +11,7 @@ no build step for the core board model.
 - [x] Realtime sync (rooms, SSE broadcast, late-joiner state, stroke ids for echo dedup)
 - [x] Live cursors + presence
 - [x] Export to PNG/SVG
-- [ ] Self-review checklist, then public
+- [x] Self-review checklist — passed on a fresh clone (36 tests, export demos, no secrets/TODOs)
 
 ## Quick start
 
