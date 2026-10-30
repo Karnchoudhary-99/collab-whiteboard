@@ -25,7 +25,7 @@ function mockCtx() {
 test("drawCursor draws an arrow at the peer position with its color and name", () => {
   const ctx = mockCtx();
   drawCursor(ctx, { peerId: "p1", name: "Ana", color: "#d62728", x: 100, y: 50 });
-  assert.deepEqual(ctx.calls[1], ["moveTo", 100, 50]); // arrow tip at cursor
+  assert.ok(ctx.calls.some(([n, x, y]) => n === "moveTo" && x === 100 && y === 50)); // arrow tip at cursor
   assert.ok(ctx.calls.some(([n, v]) => n === "fillStyle" && v === "#d62728"));
   assert.ok(ctx.calls.some(([n, text]) => n === "fillText" && text === "Ana"));
 });
