@@ -95,6 +95,26 @@ test("server: SSE subscriber receives stroke/undo/clear events, stops after clos
   assert.equal(sseRes.chunks.length, before);
 });
 
+test("server: GET /rooms/:id/export.svg returns the board as SVG", async () => {
+  const handler = createRequestHandler(createRooms());
+  await call(handler, "POST", "/rooms/lobby/strokes", {
+    points: [{ x: 0, y: 0 }, { x: 10, y: 10 }], color: "#123456", width: 3,
+  });
+  const exported = await call(handler, "GET", "/rooms/lobby/export.svg");
+  assert.equal(exported.status, 200);
+  assert.equal(exported.headers["content-type"], "image/svg+xml; charset=utf-8");
+  assert.match(exported.body(), /<svg[^>]*xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
+  assert.match(exported.body(), /stroke="#123456"/);
+
+  const empty = await call(handler, "GET", "/rooms/empty-room/export.svg");
+  assert.equal(empty.status, 200);
+  assert.match(empty.body(), /<svg/);
+  assert.ok(!empty.body().includes("<polyline"));
+
+  const badRoom = await call(handler, "GET", "/rooms/a b/export.svg");
+  assert.equal(badRoom.status, 400);
+});
+
 test("server: cursor POST broadcasts to SSE, presence GET lists, leave removes", async () => {
   const handler = createRequestHandler(createRooms());
   const sseRes = stubRes();

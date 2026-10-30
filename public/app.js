@@ -4,6 +4,7 @@
 import { createBoard, addStroke, clearBoard, undoStroke } from "../src/strokes.js";
 import { createStrokeCapture } from "../src/pointer.js";
 import { drawBoard, drawStroke } from "./render.js";
+import { toSvg } from "../src/export.js";
 import { drawCursors } from "./cursors.js";
 
 const canvas = document.getElementById("board");
@@ -73,6 +74,38 @@ canvas.addEventListener("pointerup", () => {
 
 document.getElementById("undo").addEventListener("click", () => hooks.onUndo());
 document.getElementById("clear").addEventListener("click", () => hooks.onClear());
+
+// ---- Export ----------------------------------------------------------
+// PNG: redraw the board (not drawBoard — its clearRect would erase the
+// white background) onto an offscreen canvas at board resolution.
+// SVG: the same shared toSvg() the server route uses, so a downloaded
+// file and GET /rooms/:id/export.svg can never drift apart.
+function download(filename, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById("export-png").addEventListener("click", () => {
+  const off = document.createElement("canvas");
+  off.width = canvas.width;
+  off.height = canvas.height;
+  const offCtx = off.getContext("2d");
+  offCtx.fillStyle = "#ffffff";
+  offCtx.fillRect(0, 0, off.width, off.height);
+  for (const stroke of board.strokes) drawStroke(offCtx, stroke);
+  off.toBlob((blob) => { if (blob) download(`${currentRoom || "whiteboard"}.png`, blob); }, "image/png");
+});
+
+document.getElementById("export-svg").addEventListener("click", () => {
+  download(
+    `${currentRoom || "whiteboard"}.svg`,
+    new Blob([toSvg(board)], { type: "image/svg+xml;charset=utf-8" }),
+  );
+});
 
 // ---- Realtime sync: state load + SSE broadcast + stroke POST --------
 // Strokes are applied optimistically, then deduped by id when the server

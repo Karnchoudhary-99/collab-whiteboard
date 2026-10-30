@@ -10,7 +10,8 @@ no build step for the core board model.
 - [x] Drawing canvas + stroke capture (pointer events, pressure/width, live preview)
 - [x] Realtime sync (rooms, SSE broadcast, late-joiner state, stroke ids for echo dedup)
 - [x] Live cursors + presence
-- [ ] Export to PNG/SVG, then self-review checklist, then public
+- [x] Export to PNG/SVG
+- [ ] Self-review checklist, then public
 
 ## Quick start
 
@@ -37,6 +38,20 @@ the API.
 | `POST /rooms/:id/cursors` | `{peerId, name, x, y}` → 200, broadcasts `peer-joined` + `cursor` |
 | `GET /rooms/:id/presence` | Current peers in the room |
 | `POST /rooms/:id/leave` | `{peerId}` → 200, broadcasts `peer-left` |
+| `GET /rooms/:id/export.svg` | Standalone SVG snapshot of the board (white background, padded frame) |
+
+## Export
+
+Click **Export PNG** in the toolbar for a PNG of the board at canvas
+resolution (white background, same strokes you see), or **Export SVG**
+for a standalone vector file — the client and the server route use the
+same `src/export.js`, so a downloaded SVG and
+`GET /rooms/:id/export.svg` can never drift apart. The SVG frame covers
+every point plus half the stroke width (round caps extend past the
+endpoints) and a 16px padding margin; an empty board exports as a blank
+800×600 frame. Stroke colors are XML-escaped, so a hostile color string
+can never inject markup into the file. `examples/export-demo.sh` is a
+curl tour of the server export.
 
 ## Live cursors + presence
 
