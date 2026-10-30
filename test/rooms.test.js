@@ -47,3 +47,27 @@ test("rooms: undo event carries the removed stroke", () => {
   assert.equal(event.type, "undo");
   assert.equal(event.stroke.color, "#222222");
 });
+
+test("rooms: cursor moves broadcast join then cursor, leave broadcasts peer-left", () => {
+  const rooms = createRooms();
+  const room = rooms.getOrCreate("lobby");
+  const seen = [];
+  room.subscribe((e) => seen.push(e));
+  room.moveCursor("peer-1", "Ana", 10, 20);
+  room.moveCursor("peer-1", "Ana", 11, 21);
+  assert.deepEqual(seen.map((e) => e.type), ["peer-joined", "cursor", "cursor"]);
+  assert.equal(seen[0].peer.name, "Ana");
+  assert.equal(room.listPresence().length, 1);
+  assert.equal(room.leavePeer("peer-1"), true);
+  assert.equal(room.leavePeer("peer-1"), false);
+  assert.equal(seen.at(-1).type, "peer-left");
+  assert.equal(room.listPresence().length, 0);
+});
+
+test("rooms: presence is per-room and all() lists every room", () => {
+  const rooms = createRooms();
+  rooms.getOrCreate("a").moveCursor("p", "Ana", 1, 1);
+  const b = rooms.getOrCreate("b");
+  assert.equal(b.listPresence().length, 0);
+  assert.deepEqual(rooms.all().map((r) => r.id).sort(), ["a", "b"]);
+});

@@ -6,7 +6,11 @@
 //   { type: "stroke", stroke }  a new stroke was added
 //   { type: "undo", stroke }    the last stroke was removed (stroke may be null)
 //   { type: "clear" }            the board was cleared
+//   { type: "cursor", peer }    a peer moved (peer is a presence snapshot)
+//   { type: "peer-joined", peer }  a peer's first cursor arrived
+//   { type: "peer-left", peer }    a peer left or went stale
 import { createBoard, addStroke, clearBoard, undoStroke } from "./strokes.js";
+import { createPresence } from "./presence.js";
 
 export function isValidRoomId(id) {
   return typeof id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(id);
@@ -21,9 +25,11 @@ export function createRooms() {
     if (!room) {
       const board = createBoard();
       const listeners = new Set();
+      const presence = createPresence();
       room = {
         id,
         board,
+        presence,
         seq: 0,
         subscribe(fn) {
           listeners.add(fn);
@@ -46,11 +52,37 @@ export function createRooms() {
           clearBoard(board);
           room.broadcast({ type: "clear" });
         },
+        // A cursor update also sweeps stale peers first, so a closed tab
+        // disappears as soon as anyone else moves — the server's periodic
+        // sweep covers rooms where nobody moves.
+        moveCursor(peerId, name, x, y) {
+          for (const gone of presence.prune()) room.broadcast({ type: "peer-left", peer: gone });
+          const { peer, joined } = presence.move(peerId, name, x, y);
+          if (joined) room.broadcast({ type: "peer-joined", peer });
+          room.broadcast({ type: "cursor", peer });
+          return peer;
+        },
+        leavePeer(peerId) {
+          const peers = presence.list();
+          const gone = peers.find((p) => p.peerId === peerId);
+          if (!gone) return false;
+          presence.leave(peerId);
+          room.broadcast({ type: "peer-left", peer: gone });
+          return true;
+        },
+        prunePresence() {
+          const gone = presence.prune();
+          for (const peer of gone) room.broadcast({ type: "peer-left", peer });
+          return gone;
+        },
+        listPresence() {
+          return presence.list();
+        },
       };
       rooms.set(id, room);
     }
     return room;
   }
 
-  return { getOrCreate, has: (id) => rooms.has(id) };
+  return { getOrCreate, has: (id) => rooms.has(id), all: () => [...rooms.values()] };
 }

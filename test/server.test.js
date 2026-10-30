@@ -94,3 +94,32 @@ test("server: SSE subscriber receives stroke/undo/clear events, stops after clos
   await call(handler, "POST", "/rooms/lobby/strokes", { points: [{ x: 5, y: 5 }] });
   assert.equal(sseRes.chunks.length, before);
 });
+
+test("server: cursor POST broadcasts to SSE, presence GET lists, leave removes", async () => {
+  const handler = createRequestHandler(createRooms());
+  const sseRes = stubRes();
+  await handler(stubReq("GET", "/rooms/lobby/events"), sseRes);
+
+  const moved = await call(handler, "POST", "/rooms/lobby/cursors", { peerId: "p1", name: "Ana", x: 10, y: 20 });
+  assert.equal(moved.status, 200);
+  assert.equal(moved.json().peer.name, "Ana");
+  assert.match(moved.json().peer.color, /^#/);
+
+  const presence = await call(handler, "GET", "/rooms/lobby/presence");
+  assert.equal(presence.status, 200);
+  assert.equal(presence.json().peers.length, 1);
+
+  const bad = await call(handler, "POST", "/rooms/lobby/cursors", { peerId: "p1", name: "x".repeat(33), x: 1, y: 1 });
+  assert.equal(bad.status, 400);
+  const badCoord = await call(handler, "POST", "/rooms/lobby/cursors", { peerId: "p1", name: "Ana", x: "10", y: 1 });
+  assert.equal(badCoord.status, 400);
+
+  const left = await call(handler, "POST", "/rooms/lobby/leave", { peerId: "p1" });
+  assert.deepEqual(left.json(), { left: true });
+  const leftAgain = await call(handler, "POST", "/rooms/lobby/leave", { peerId: "p1" });
+  assert.deepEqual(leftAgain.json(), { left: false });
+  assert.equal((await call(handler, "GET", "/rooms/lobby/presence")).json().peers.length, 0);
+
+  const events = sseRes.body().split("\n\n").filter((b) => b.startsWith("data: ")).map((b) => JSON.parse(b.slice(6)));
+  assert.deepEqual(events.map((e) => e.type), ["peer-joined", "cursor", "peer-left"]);
+});
