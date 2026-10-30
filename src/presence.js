@@ -28,7 +28,9 @@ export function normalizeName(name) {
 }
 
 export function isValidName(name) {
-  return typeof name === "string" && name.trim().length >= 1 && name.trim().length <= 32;
+  // A blank name is valid — it normalizes to "Guest". Only overlong or
+  // non-string names are rejected.
+  return typeof name === "string" && name.trim().length <= 32;
 }
 
 export function isValidCoordinate(v) {
