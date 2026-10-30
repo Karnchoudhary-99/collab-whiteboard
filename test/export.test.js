@@ -32,6 +32,24 @@ test("export: SVG renders a polyline stroke and a single-point dot", () => {
   assert.match(svg, /<rect[^>]*fill="#ffffff"/); // opaque background, not transparent
 });
 
+test("export: stroke colors are XML-escaped, never injected as markup", () => {
+  const svg = toSvg(board([
+    { points: [{ x: 0, y: 0 }, { x: 5, y: 5 }], color: 'red" onload="alert(1)', width: 2 },
+  ]));
+  assert.ok(!svg.includes('onload="alert(1)"'));
+  assert.match(svg, /stroke="red&quot; onload=&quot;alert\(1\)"/);
+});
+
+test("export: custom padding and background are honoured", () => {
+  const svg = toSvg(
+    board([{ points: [{ x: 10, y: 10 }], color: "#000000", width: 2 }]),
+    { padding: 0, background: "#f0f0f0" },
+  );
+  // Single point, width 2: half-width 1, padding 0 -> frame 9..11.
+  assert.match(svg, /viewBox="9 9 2 2"/);
+  assert.match(svg, /<rect[^>]*fill="#f0f0f0"/);
+});
+
 test("export: SVG is standalone with a viewBox framing the board", () => {
   const svg = toSvg(board([
     { points: [{ x: 100, y: 100 }, { x: 200, y: 150 }], color: "#000000", width: 2 },
