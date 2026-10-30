@@ -9,6 +9,7 @@
 //   POST /rooms/:id/cursors         {peerId, name, x, y} -> 200, broadcast
 //   POST /rooms/:id/leave           {peerId} -> 200, broadcast peer-left
 //   GET  /rooms/:id/presence        current peers (stale peers pruned first)
+//   GET  /rooms/:id/export.svg      the board as a standalone SVG snapshot
 //   GET  /rooms/:id/events          Server-Sent Events broadcast channel
 //
 // The request handler is exported separately from the listener so tests
@@ -18,6 +19,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRooms, isValidRoomId } from "./rooms.js";
+import { toSvg } from "./export.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const PUBLIC_DIR = path.join(HERE, "..", "public");
@@ -84,6 +86,11 @@ export function createRequestHandler(rooms, { publicDir = PUBLIC_DIR, srcDir = S
 
         if (parts.length === 2 && req.method === "GET") {
           return sendJson(res, 200, { room: id, strokes: room.board.strokes });
+        }
+        if (parts.length === 3 && parts[2] === "export.svg" && req.method === "GET") {
+          const svg = toSvg(room.board);
+          res.writeHead(200, { "content-type": "image/svg+xml; charset=utf-8" });
+          return res.end(svg);
         }
         if (parts.length === 3 && parts[2] === "events" && req.method === "GET") {
           res.writeHead(200, {
