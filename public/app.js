@@ -4,6 +4,7 @@
 import { createBoard, addStroke, clearBoard, undoStroke } from "../src/strokes.js";
 import { createStrokeCapture } from "../src/pointer.js";
 import { drawBoard, drawStroke } from "./render.js";
+import { drawCursors } from "./cursors.js";
 
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
@@ -11,8 +12,18 @@ const board = createBoard();
 const capture = createStrokeCapture({ minDistance: 2 });
 const statusEl = document.getElementById("status");
 
+// Live cursors: peers in this room, keyed by peer id. Our own cursor is
+// never rendered — we see our own pointer already.
+const peers = new Map();
+const myPeerId = crypto.randomUUID();
+
+function otherPeers() {
+  return [...peers.values()].filter((p) => p.peerId !== myPeerId);
+}
+
 function redraw() {
   drawBoard(ctx, board);
+  drawCursors(ctx, otherPeers());
 }
 
 // Live preview: committed strokes plus the one still being drawn.
@@ -20,6 +31,7 @@ function redrawWithPreview() {
   drawBoard(ctx, board);
   const current = capture.currentStroke?.();
   if (current) drawStroke(ctx, current);
+  drawCursors(ctx, otherPeers());
 }
 
 function canvasPoint(e) {
@@ -49,6 +61,7 @@ canvas.addEventListener("pointerdown", (e) => {
 });
 
 canvas.addEventListener("pointermove", (e) => {
+  sendCursor(canvasPoint(e)); // live cursor even when not drawing
   if (!capture.isDrawing()) return;
   if (capture.pointerMove(canvasPoint(e))) redrawWithPreview();
 });
@@ -94,6 +107,48 @@ async function loadState() {
   for (const s of strokes) if (s.id) seenStrokeIds.add(s.id);
 }
 
+// ---- Live cursors + presence -----------------------------------------
+// Cursor updates are throttled to ~10/s and heartbeated every 5s, so a
+// peer that goes silent is pruned server-side within ~15s + sweep.
+const nameInput = document.getElementById("name");
+let lastCursor = null;
+let lastCursorSent = 0;
+
+function displayName() {
+  return (nameInput.value || "").trim() || "Guest";
+}
+
+function postCursor(point) {
+  return post(`/rooms/${encodeURIComponent(currentRoom)}/cursors`, {
+    peerId: myPeerId, name: displayName(), x: point.x, y: point.y,
+  }).catch(() => {});
+}
+
+function sendCursor(point) {
+  lastCursor = point;
+  const now = Date.now();
+  if (now - lastCursorSent < 100) return;
+  lastCursorSent = now;
+  postCursor(point);
+}
+
+setInterval(() => { if (lastCursor) postCursor(lastCursor); }, 5000);
+
+async function loadPresence() {
+  const res = await fetch(`/rooms/${encodeURIComponent(currentRoom)}/presence`);
+  if (!res.ok) return;
+  const { peers: snapshot } = await res.json();
+  peers.clear();
+  for (const p of snapshot) peers.set(p.peerId, p);
+  redraw();
+}
+
+function leaveRoom(room) {
+  const body = JSON.stringify({ peerId: myPeerId });
+  if (navigator.sendBeacon) navigator.sendBeacon(`/rooms/${encodeURIComponent(room)}/leave`, body);
+}
+window.addEventListener("beforeunload", () => leaveRoom(currentRoom));
+
 let eventSource = null;
 function connect() {
   if (eventSource) eventSource.close();
@@ -112,6 +167,12 @@ function connect() {
       undoStroke(board); redraw();
     } else if (event.type === "clear") {
       clearBoard(board); redraw();
+    } else if (event.type === "cursor" || event.type === "peer-joined") {
+      peers.set(event.peer.peerId, event.peer);
+      redraw();
+    } else if (event.type === "peer-left") {
+      peers.delete(event.peer.peerId);
+      redraw();
     }
   };
 }
@@ -137,10 +198,12 @@ hooks.onClear = () => {
 roomInput.addEventListener("change", () => {
   const next = roomInput.value.trim();
   if (!next || next === currentRoom) return;
+  leaveRoom(currentRoom);
+  peers.clear();
   currentRoom = next;
   history.replaceState(null, "", `?room=${encodeURIComponent(currentRoom)}`);
-  loadState().then(connect).catch(() => setStatus("offline — drawing locally", true));
+  loadState().then(loadPresence).then(connect).catch(() => setStatus("offline — drawing locally", true));
 });
 
-loadState().then(connect).catch(() => setStatus("local mode — start the server for live sync", true));
+loadState().then(loadPresence).then(connect).catch(() => setStatus("local mode — start the server for live sync", true));
 redraw();

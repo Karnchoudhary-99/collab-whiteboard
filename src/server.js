@@ -69,7 +69,7 @@ export function createRequestHandler(rooms, { publicDir = PUBLIC_DIR, srcDir = S
       if (req.method === "GET" && url.pathname === "/") {
         return serveStatic(res, path.join(publicDir, "index.html"));
       }
-      if (req.method === "GET" && (url.pathname === "/app.js" || url.pathname === "/render.js")) {
+      if (req.method === "GET" && (url.pathname === "/app.js" || url.pathname === "/render.js" || url.pathname === "/cursors.js")) {
         return serveStatic(res, path.join(publicDir, path.basename(url.pathname)));
       }
       if (req.method === "GET" && parts[0] === "src" && parts.length === 2 && parts[1].endsWith(".js") && !parts[1].includes("..")) {
